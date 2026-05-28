@@ -1,0 +1,48 @@
+name: PJM Daily Peak Alert
+
+# WHAT THIS DOES
+# --------------
+# Runs pjm_peak_alert.py every morning at 7:00 a.m. Eastern Time during
+# PJM's capacity-setting summer window (June 1 – September 30).
+# Sends an email summary to the recipient list defined in the MAIL_TO secret.
+#
+# You can also trigger it manually any time via the "Run workflow" button
+# in the Actions tab — useful for testing.
+
+on:
+  schedule:
+    # GitHub Actions cron is always UTC. 7 a.m. Eastern (EDT, UTC-4) = 11:00 UTC.
+    # We define one entry per summer month so we don't waste runs in winter.
+    - cron: "0 11 1-30 6 *"   # June
+    - cron: "0 11 1-31 7 *"   # July
+    - cron: "0 11 1-31 8 *"   # August
+    - cron: "0 11 1-30 9 *"   # September
+  workflow_dispatch:           # lets you click "Run workflow" manually
+
+jobs:
+  send-alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run PJM peak alert
+        env:
+          PJM_API_KEY:    ${{ secrets.PJM_API_KEY }}
+          SMTP_HOST:      smtp.office365.com
+          SMTP_PORT:      "587"
+          SMTP_USER:      ${{ secrets.SMTP_USER }}
+          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
+          MAIL_FROM:      ${{ secrets.MAIL_FROM }}
+          MAIL_TO:        ${{ secrets.MAIL_TO }}
+          MAIL_REPLY_TO:  ${{ secrets.MAIL_REPLY_TO }}
+        run: python pjm_peak_alert.py
